@@ -14,7 +14,8 @@ All you really need us something like this:
 
 It will attempts to look for a socket in ```/run/user/<uid>/keyring/.ssh``` then get the PID for the ssh-agent associated.
 
-This was written because on Ubuntu 21.10 my keychain-refresh-environment doesn't work, so now for my portable config I have:
+If you already use the normally excellent keychain-environment in some places but want to make your config portable then you can try something like this:
+
 
 ```
 (use-package get-ssh-agent-gnome-keyring-daemon
@@ -28,17 +29,13 @@ This was written because on Ubuntu 21.10 my keychain-refresh-environment doesn't
      (keychain-refresh-environment)))
 ```
 
-Which means if it gets it from the gnome-keyring-daemon it doesn't
-try keychain-refresh-environment.
+So if there is already a running gnome-keyring-daemon it doesn't
+try keychain-refresh-environment (which will probably start another ssh-agent)
 
-If your socket is in another location you can call:
+Lastly if your socket is in another location you can call:
 
 ```
 (get-ssh-agent-gnome-keyring-daemon "/path/to/your/socket")
 ```
 
 Just keep in mind this is going to be put into a pgrep shell command and I can't guarentee this is totally secure.  You have been warned.
-
-
-
-

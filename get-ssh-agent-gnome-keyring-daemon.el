@@ -25,11 +25,6 @@
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
-;; This is not a real solid package, this is just me breaking out my
-;; nanowrimo-setup it does include accurate to wc(1) word counting, a
-;; split outline/editing view and plain text output (part of the
-;; wordcounting)
-
 ;;; History
 ;;
 ;; 2022-02-27 - initial version
@@ -76,7 +71,7 @@ WARNING: there is a non-zero chance that this string could be used to try and ex
                       SOCKETNAME
                     (concat "/run/user/"
                             (format "%i" (user-uid))
-                            "/keyringBROKEN/.ssh")))
+                            "/keyring/.ssh")))
          (agentpid nil)
          (pgrep-command (format "pgrep -nfi 'ssh-agent -D -a %s'" socktmp))
          (kill-buffer-query-functions nil))
