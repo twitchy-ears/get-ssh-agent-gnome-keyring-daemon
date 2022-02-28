@@ -75,7 +75,6 @@ WARNING: there is a non-zero chance that this string could be used to try and ex
          (agentpid nil)
          (pgrep-command (format "pgrep -nfi 'ssh-agent -D -a %s'" socktmp))
          (kill-buffer-query-functions nil))
-    (progn
       
       ;; If the socket exists get the ssh-agent PID associated with it
       (if (file-exists-p socktmp)
@@ -96,6 +95,6 @@ WARNING: there is a non-zero chance that this string could be used to try and ex
                       (setq get-ssh-agent-gnome-keyring-daemon t))))))
         
         ;; Otherwise indicate failure
-        (setq get-ssh-agent-gnome-keyring-daemon nil)))))
+        (setq get-ssh-agent-gnome-keyring-daemon nil))))
 
 (provide 'get-ssh-agent-gnome-keyring-daemon)
