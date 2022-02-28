@@ -67,32 +67,36 @@
 Takes an optional argument of SOCKETNAME and if set will use that instead of trying to generate one.
 
 WARNING: there is a non-zero chance that this string could be used to try and exploit your shell via a shell escape."
-  (let* ((socktmp (if SOCKETNAME
-                      SOCKETNAME
-                    (concat "/run/user/"
-                            (format "%i" (user-uid))
-                            "/keyring/.ssh")))
-         (agentpid nil)
+  (let* ((socktmp
+          ;; Attempt to remove any single quotes that end up in this
+          ;; to safe it a little from any escapes.
+          (replace-regexp-in-string "'" ""
+                                    (if SOCKETNAME
+                                        SOCKETNAME
+                                      (concat "/run/user/"
+                                              (format "%i" (user-uid))
+                                              "/keyring/.ssh"))))
+         ;; (agentpid nil)
          (pgrep-command (format "pgrep -nfi 'ssh-agent -D -a %s'" socktmp))
          (kill-buffer-query-functions nil))
       
-      ;; If the socket exists get the ssh-agent PID associated with it
+      ;; If the socket exists get the ssh-agent PID associated with
+      ;; it, use replace-regexp-in-string to remove any ending
+      ;; newlines and convert it to a number for test purposes,
+      ;; however setenv expects a string, so leave it unconverted
+      ;; there.
       (if (file-exists-p socktmp)
 
-          ;; Try and use pgrep to get the PID for the agent
-          (save-excursion
-            (with-temp-buffer
-              (let ((tmpbuffer (buffer-name)))
-                (shell-command pgrep-command tmpbuffer)
-                (switch-to-buffer tmpbuffer)
-                (setq agentpid (buffer-substring-no-properties (point-min) (point-max)))
-
-                ;; Should regex the PID but doesn't.
-                (if (not (eql agentpid nil))
-                    (progn
-                      (setenv "SSH_AGENT_SOCK" socktmp)
-                      (setenv "SSH_AGENT_PID" agentpid)
-                      (setq get-ssh-agent-gnome-keyring-daemon t))))))
+          (let ((agentpid (replace-regexp-in-string
+                           "\n\\'" ""
+                           (shell-command-to-string pgrep-command))))
+              
+              ;; If we get a number then set the variables.
+              (if (numberp (string-to-number agentpid))
+                  (progn
+                    (setenv "SSH_AGENT_SOCK" socktmp)
+                    (setenv "SSH_AGENT_PID" agentpid)
+                    (setq get-ssh-agent-gnome-keyring-daemon t))))
         
         ;; Otherwise indicate failure
         (setq get-ssh-agent-gnome-keyring-daemon nil))))
