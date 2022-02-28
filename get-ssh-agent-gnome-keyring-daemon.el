@@ -28,6 +28,7 @@
 ;;; History
 ;;
 ;; 2022-02-27 - initial version
+;; 2022-02-28 - Tidy up, better argument handling.
 
 ;;; Commentary:
 
@@ -38,7 +39,11 @@
 ;;
 ;; It will attempts to look for a socket in
 ;; /run/user/<uid>/keyring/.ssh then get the PID for the ssh-agent
-;; associated.
+;; associated.  If successful it sets the SSH_AGENT_SOCK and
+;; SSH_AGENT_PID environment variables, sets
+;; get-ssh-gnome-keyring-daemon to t and returns t.  Returns nil and
+;; ensures get-ssh-gnome-keyring-daemon is nil on failure.
+;;
 ;;
 ;; This was written because on Ubuntu 21.10 my
 ;; keychain-refresh-environment doesn't work, so now for my portable
@@ -56,29 +61,48 @@
 ;;
 ;; Which means if it gets it from the gnome-keyring-daemon it doesn't
 ;; try keychain-refresh-environment.
+;;
+;; Accepts optional named arguments of :socket and :pgrep-template to
+;; configure how you want those to work, which potentially creates
+;; shell escape security vulnerabilities.
+;;
+;; (get-ssh-agent-gnome-keyring-daemon
+;;     :socket '/path/to/your/socket/.ssh'
+;;     :pgrep-template "your-pgrep 'ssh-agent %s'")
 
 ;;; Code:
 (defvar get-ssh-agent-gnome-keyring-daemon nil
   "Defaults to nil, if get-ssh-agent-gnome-keyring-daemon is run and successfully locates an ssh-agent PID it will be set to t")
 
-(defun get-ssh-agent-gnome-keyring-daemon (&optional SOCKETNAME)
-  "Looks for a socket at /run/user/<uid>/keyring/.ssh and if it finds one it uses pgrep to try and find the ssh-agent command associated with it and get its PID, if it has both it sets the SSH_AGENT_SOCK and SSH_AGENT_PID environment variables and sets 'get-ssh-agent-gnome-keyring-daemon' to t, otherwise this variable is set to nil.
+(defun get-ssh-agent-gnome-keyring-daemon (&rest args)
+  "Looks for a file at /run/user/<uid>/keyring/.ssh and if it finds one it uses pgrep to try and find the ssh-agent command associated with it in the way that gnome-keyring-daemon creates ssh-agents.  If it has both it sets the SSH_AGENT_SOCK and SSH_AGENT_PID environment variables and sets 'get-ssh-agent-gnome-keyring-daemon' to t, otherwise this variable is set to nil.
 
-Takes an optional argument of SOCKETNAME and if set will use that instead of trying to generate one.
+Takes two optional named arguments of :socket and :pgrep-template
 
-WARNING: there is a non-zero chance that this string could be used to try and exploit your shell via a shell escape."
+If you set :socket it will use that instead of trying to generate one, (WARNING: there is a non-zero chance that this string could be used to try and exploit your shell via a shell escape - this string like the generated socket string will have all single quotes (') removed from it to help reduce the chances of accidental quoting issues).
+
+If you set :pgrep-template it will use that to create the shell command, this should be a format string and have a single %s escape in it where you want the socket inserted.
+
+Can be called as 
+(get-ssh-agent-gnome-keyring-daemon 
+    :socket '/path/to/your/socket/.ssh' 
+    :pgrep-template \"your-pgrep 'ssh-agent %s'\")"
+  
   (let* ((socktmp
           ;; Attempt to remove any single quotes that end up in this
           ;; to safe it a little from any escapes.
           (replace-regexp-in-string "'" ""
-                                    (if SOCKETNAME
-                                        SOCKETNAME
+                                    (if (plist-get args :socket)
+                                        (plist-get args :socket)
                                       (concat "/run/user/"
                                               (format "%i" (user-uid))
                                               "/keyring/.ssh"))))
-         ;; (agentpid nil)
-         (pgrep-command (format "pgrep -nfi 'ssh-agent -D -a %s'" socktmp))
-         (kill-buffer-query-functions nil))
+         ;; Generate our pgrep command.
+         (pgrep-command
+          (if (plist-get args :pgrep-template)
+              (format (plist-get args :pgrep-template) socktmp)
+            (format "pgrep -nfi 'ssh-agent -D -a %s'" socktmp))))
+
       
       ;; If the socket exists get the ssh-agent PID associated with
       ;; it, use replace-regexp-in-string to remove any ending
